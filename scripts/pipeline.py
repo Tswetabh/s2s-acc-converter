@@ -183,6 +183,8 @@ def parse_args():
 def main():
     args = parse_args()
 
+    total_pipeline_start = time.perf_counter()
+
     print("=" * 65)
     print("   UNIFIED SPEECH-TO-SPEECH WORKFLOW PIPELINE")
     print("   Input Recording -> Conversion -> STT -> TTS Clone")
@@ -192,34 +194,42 @@ def main():
     # STAGE 1: INGESTION & AUDIO RESOLUTION
     # -------------------------------------------------------------
     print("\n[STAGE 1/4] Resolving Input Audio...")
+    t_resolve_start = time.perf_counter()
     input_file, source_desc = resolve_input_audio(
         audio_arg=args.audio,
         recordings_dir=args.recordings_dir,
         interactive=args.select,
         fallback_path=DEFAULT_FALLBACK_AUDIO,
     )
-    print(f"  Source: {source_desc}")
-    print(f"  File  : {input_file}")
+    t_resolve = time.perf_counter() - t_resolve_start
+    print(f"  Source : {source_desc}")
+    print(f"  File   : {input_file}")
+    print(f"  Latency: {t_resolve * 1000:.1f} ms")
 
     # -------------------------------------------------------------
     # STAGE 2: AUDIO CONVERSION (.m4a -> .wav)
     # -------------------------------------------------------------
     print("\n[STAGE 2/4] Validating & Converting Audio Format...")
+    t_convert_start = time.perf_counter()
     DEFAULT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    converted = False
     if input_file.suffix.lower() != ".wav":
         converted_wav_path = DEFAULT_OUTPUT_DIR / f"converted_{input_file.stem}.wav"
         print(f"  Converting {input_file.suffix} -> WAV (16kHz mono)...")
         wav_audio_path = convert_to_wav(input_file, converted_wav_path, target_sr=16000)
+        converted = True
         print(f"  Converted WAV ready: {wav_audio_path}")
     else:
         wav_audio_path = input_file
         print(f"  Input is already a WAV file: {wav_audio_path}")
+    t_convert = time.perf_counter() - t_convert_start
+    print(f"  Conversion Latency: {t_convert * 1000:.1f} ms" + (" (skipped, native WAV)" if not converted else ""))
 
     # -------------------------------------------------------------
     # STAGE 3: SPEECH-TO-TEXT (STT)
     # -------------------------------------------------------------
     print(f"\n[STAGE 3/4] Transcribing with Faster-Whisper ('{args.stt_model}')...")
-    stt_start = time.time()
+    stt_stage_start = time.perf_counter()
 
     # Determine STT device and compute type
     if args.device == "cuda" or (args.device == "auto" and torch.cuda.is_available()):
@@ -229,25 +239,33 @@ def main():
         stt_device = "cpu"
         stt_compute = "int8"
 
+    stt_load_start = time.perf_counter()
     stt_adapter = FasterWhisperAdapter(
         model_path=args.stt_model,
         device=stt_device,
         compute_type=stt_compute,
     )
     stt_adapter.load()
+    t_stt_load = time.perf_counter() - stt_load_start
+
+    stt_infer_start = time.perf_counter()
     stt_result = stt_adapter.transcribe(str(wav_audio_path))
-    stt_duration = time.time() - stt_start
+    t_stt_infer = time.perf_counter() - stt_infer_start
+    t_stt_total = time.perf_counter() - stt_stage_start
 
     transcribed_text = stt_result.get("text", "").strip()
     detected_lang = stt_result.get("language", "unknown")
     audio_len = stt_result.get("duration", 0.0)
+    stt_rtf = t_stt_infer / max(audio_len, 0.001)
 
-    print("\n" + "-" * 50)
-    print(f"Detected Language : {detected_lang}")
-    print(f"Input Duration    : {audio_len:.2f}s")
-    print(f"STT Time          : {stt_duration:.2f}s")
-    print(f"Transcribed Text  :\n\"{transcribed_text}\"")
-    print("-" * 50)
+    print("\n" + "-" * 55)
+    print(f"Detected Language  : {detected_lang}")
+    print(f"Input Audio Length : {audio_len:.2f}s")
+    print(f"STT Model Load     : {t_stt_load * 1000:.1f} ms ({t_stt_load:.2f}s)")
+    print(f"STT Inference Time : {t_stt_infer * 1000:.1f} ms ({t_stt_infer:.2f}s) | RTF: {stt_rtf:.2f}x")
+    print(f"Total STT Latency  : {t_stt_total * 1000:.1f} ms ({t_stt_total:.2f}s)")
+    print(f"Transcribed Text   :\n\"{transcribed_text}\"")
+    print("-" * 55)
 
     if not transcribed_text:
         print("[WARNING] No speech detected in input audio. Exiting.")
@@ -260,6 +278,7 @@ def main():
     # STAGE 4: TEXT-TO-SPEECH (TTS) VOICE CLONING
     # -------------------------------------------------------------
     print("\n[STAGE 4/4] Synthesizing Speech with Pocket TTS...")
+    tts_stage_start = time.perf_counter()
 
     # Resolve reference voice
     if args.reference:
@@ -281,11 +300,13 @@ def main():
     if args.device == "cuda" or (args.device == "auto" and torch.cuda.is_available()):
         tts_device = "cuda"
 
-    tts_load_start = time.time()
+    tts_load_start = time.perf_counter()
     tts_model = TTSModel.load_model(device=tts_device)
-    print(f"  TTS Model loaded in {time.time() - tts_load_start:.2f}s")
+    t_tts_load = time.perf_counter() - tts_load_start
+    print(f"  TTS Model loaded in {t_tts_load:.2f}s ({t_tts_load * 1000:.1f} ms)")
 
     # Voice conditioning
+    t_cond_start = time.perf_counter()
     if ref_path and tts_model.has_voice_cloning:
         voice_state = tts_model.get_state_for_audio_prompt(str(ref_path))
         print("  Voice conditioning created from reference voice.")
@@ -293,6 +314,7 @@ def main():
         fallback_voice = "alba"
         voice_state = tts_model.get_state_for_audio_prompt(fallback_voice)
         print(f"  Using built-in voice: {fallback_voice}")
+    t_tts_cond = time.perf_counter() - t_cond_start
 
     # Output file path
     if args.output:
@@ -303,25 +325,43 @@ def main():
 
     output_wav.parent.mkdir(parents=True, exist_ok=True)
 
-    # Generation
-    gen_start = time.time()
+    # Generation / Synthesis
+    gen_start = time.perf_counter()
     audio = tts_model.generate_audio(voice_state, text_to_generate=transcribed_text)
-    gen_time = time.time() - gen_start
+    t_tts_gen = time.perf_counter() - gen_start
+    t_tts_total = time.perf_counter() - tts_stage_start
 
     audio_cpu = audio.cpu()
     sf.write(str(output_wav), audio_cpu.squeeze().numpy(), tts_model.sample_rate)
     out_duration = audio_cpu.shape[-1] / tts_model.sample_rate
-    rtf = gen_time / max(out_duration, 0.001)
+    tts_rtf = t_tts_gen / max(out_duration, 0.001)
+
+    total_pipeline_time = time.perf_counter() - total_pipeline_start
+    overall_rtf = total_pipeline_time / max(out_duration, 0.001)
 
     print("\n" + "=" * 65)
-    print("   PIPELINE EXECUTION COMPLETE")
+    print("                 PIPELINE LATENCY & BENCHMARK SUMMARY")
     print("=" * 65)
-    print(f"  Final Output Audio : {output_wav}")
-    print(f"  Synthesized Length : {out_duration:.2f}s")
-    print(f"  Generation Time    : {gen_time:.2f}s (RTF: {rtf:.2f}x)")
+    print(f"  {'STAGE':<30} {'TIME (s)':>10} {'LATENCY (ms)':>15} {'METRIC':>12}")
+    print("  " + "-" * 61)
+    print(f"  {'1. Audio Ingestion/Resolve':<30} {t_resolve:>9.3f}s {t_resolve * 1000:>13.1f} ms {'-':>12}")
+    print(f"  {'2. Audio Conversion (M4A->WAV)':<30} {t_convert:>9.3f}s {t_convert * 1000:>13.1f} ms {f'In: {audio_len:.1f}s':>12}")
+    print(f"  {'3. STT Total (Faster-Whisper)':<30} {t_stt_total:>9.3f}s {t_stt_total * 1000:>13.1f} ms {f'RTF: {stt_rtf:.2f}x':>12}")
+    print(f"     ├─ Model Load             {t_stt_load:>9.3f}s {t_stt_load * 1000:>13.1f} ms")
+    print(f"     └─ Audio Transcription    {t_stt_infer:>9.3f}s {t_stt_infer * 1000:>13.1f} ms")
+    print(f"  {'4. TTS Total (Pocket TTS)':<30} {t_tts_total:>9.3f}s {t_tts_total * 1000:>13.1f} ms {f'RTF: {tts_rtf:.2f}x':>12}")
+    print(f"     ├─ Model Load             {t_tts_load:>9.3f}s {t_tts_load * 1000:>13.1f} ms")
+    print(f"     ├─ Voice Conditioning     {t_tts_cond:>9.3f}s {t_tts_cond * 1000:>13.1f} ms")
+    print(f"     └─ Speech Synthesis       {t_tts_gen:>9.3f}s {t_tts_gen * 1000:>13.1f} ms {f'Out: {out_duration:.1f}s':>12}")
+    print("  " + "-" * 61)
+    print(f"  {'TOTAL END-TO-END PIPELINE':<30} {total_pipeline_time:>9.3f}s {total_pipeline_time * 1000:>13.1f} ms {f'RTF: {overall_rtf:.2f}x':>12}")
+    print("=" * 65)
+    print(f"  Output File : {output_wav}")
+    print(f"  Synthesized : {out_duration:.2f}s of audio")
     print("=" * 65 + "\n")
 
     return 0
+
 
 
 if __name__ == "__main__":
