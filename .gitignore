@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+stt-env/
+DNXS-Spokenword-Pocket-TTS-GPU/.venv/
+DNXS-Spokenword-Pocket-TTS-GPU/venv/
+
+# Runtime / generated
+Output/
+outputs/
+*.log
+pocket_tts.log
+.setup_complete
+.hf_token_skipped
+
+# Model weights (large binaries kept locally)
+weights/
+!weights/**/README.md
+!weights/**/.gitkeep
+
+# Local machine state & backups
+**/ASR/asr_gui_config.json
+**/ASR/launcher.log
+**/ASR/PocketGPU_ASR_Validator.desktop
+**/ASR/arsproposal.txt
+tests/results/
+HF_SETUP_INSTRUCTIONS.txt
+*.bak
+*.bak_*
+*.orig
+*.old
+*.back
+*.backup
+*.backup.*
+*.backup_*
+* (copy).*
+* (another copy).*
+*.18
+plan.txt
+prompt.txt
+session-ses_0926.md
+opencode.json
+

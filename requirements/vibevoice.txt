@@ -1,0 +1,8 @@
+# Microsoft VibeVoice 1.5B Requirements
+transformers>=4.42.0
+accelerate>=0.30.0
+torch>=2.2.0
+torchaudio>=2.2.0
+soundfile>=0.12.1
+einops>=0.7.0
+safetensors>=0.4.3

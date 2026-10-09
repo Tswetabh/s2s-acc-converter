@@ -1,0 +1,805 @@
+Repository: danneauxs/Pocket-TTS-Spokenword
+
+
+Target file: ASR/asr_validator.py
+
+Supporting test data: Use the existing ASR failure logs and any chunk audio/text pairs already present in the repository. The previously generated standalone rewritten validator must not be treated as authoritative code.
+
+
+
+Objective
+
+Improve the ASR validator so it identifies genuine TTS audio defects while avoiding failures caused only by harmless ASR transcription differences.
+
+The final audio is acceptable when it sounds like the supplied reference text when spoken, even when:
+
+• punctuation differs
+
+• capitalization differs
+
+• spacing or hyphenation differs
+
+• contractions are expanded
+
+• numbers or ordinals are written differently • names or invented words are transcribed phonetically • deliberately phonetic homograph spellings are used, such as reed , red , lyve , or liv
+
+The validator must still fail genuine defects such as:
+
+• extra words or sentences
+
+• missing words or clauses
+
+• repeated words or phrases not present in the reference • truncated speech
+
+• changed numbers
+
+• changed negation
+
+• unrelated speech
+
+• foreign-language or nonsensical transcription • major spoken-content substitutions
+
+Required workflow
+
+1. Create a feature branch from the current main . 2. Inspect the complete existing ASR/asr_validator.py . 3. Inspect related configuration files, tests, logs, and callers. 4. Preserve all existing GUI modes, file discovery, logging, Faster-Whisper loading, configuration
+
+persistence, and external function interfaces unless a change is necessary and documented.
+
+5. Implement changes incrementally.
+
+6. Add automated tests before changing final thresholds. 7. Run the full test suite and report exact results. 8. Commit the changes and open a pull request. Do not merge it.
+
+
+
+1
+
+
+
+
+
+Suggested branch name:
+
+
+
+
+fix/asr-spoken-content-validation
+
+
+
+Phase 1: Correct deterministic normalization defects
+
+Fix the current normalization code before replacing scoring.
+
+Roman numerals
+
+The lowercase pronoun i must never be converted to 1 or one .
+
+Roman-numeral conversion must be conservative. Do not interpret arbitrary lowercase prose words as Roman numerals.
+
+Acceptable approaches include:
+
+• only convert uppercase Roman numerals from the original text • require a multi-character Roman numeral • explicitly exclude standalone I
+
+Add regression tests for:
+
+
+
+I am ready.
+
+
+
+
+
+Chapter XX
+
+
+Louis XIV
+
+
+
+Ordinals and numbers
+
+Normalize punctuation around numeric tokens before attempting ordinal conversion.
+
+These must normalize equivalently:
+
+
+
+20th
+
+20th.
+
+twentieth
+
+
+
+Also support ordinary cardinal equivalents:
+
+
+
+20
+
+twenty
+
+
+
+2
+
+
+
+
+
+Do not convert digits inside identifiers or protected alphanumeric names.
+
+
+Contractions
+
+Replace the limited hard-coded contraction list with a robust normalization method.
+
+At minimum support:
+
+
+
+I'm / I am
+
+isn't / is not
+
+wasn't / was not
+
+weren't / were not
+
+doesn't / does not
+
+didn't / did not
+
+can't / cannot
+
+won't / will not
+
+everything'll / everything will
+
+Support straight and curly apostrophes.
+
+Avoid unsafe substring replacement. Perform token-aware or regex-boundary-aware expansion.
+
+Punctuation and hyphenation
+
+Treat punctuation, quotation marks, capitalization, and normal spacing differences as non-semantic.
+
+For vocalized repeated syllables, hyphens must become token boundaries rather than disappearing.
+
+Example:
+
+
+
+tra-lal-lal-lal-lal-la
+
+la la la la la
+
+The reference repetition must remain visible to repetition analysis.
+
+Repetition preservation
+
+Do not collapse repeated words inside the representation used for validation.
+
+Remove or isolate the current logic that changes:
+
+
+
+hope hope hope hope
+
+
+
+3
+
+
+
+
+
+into:
+
+
+
+
+hope
+
+A separate display-only normalized form may collapse repetitions, but scoring and hallucination detection must retain them.
+
+
+
+Phase 2: Replace character-string scoring
+
+The existing rapidfuzz.fuzz.ratio() character score must not be the primary correctness decision.
+
+Implement token-level sequence alignment using dynamic programming.
+
+The alignment must classify operations as:
+
+• exact match
+
+• normalized equivalent
+
+• phonetic equivalent
+
+• substitution
+
+• insertion
+
+• deletion
+
+Return structured alignment data rather than only a scalar score.
+
+Suggested structure:
+
+
+
+{
+
+"operations": [...],
+
+"matched_reference_tokens": 0,
+
+"reference_token_count": 0,
+
+"extra_tokens": [],
+
+"missing_tokens": [],
+
+"substitutions": [],
+
+"coverage_score": 0.0,
+
+"phonetic_score": 0.0,
+
+}
+
+
+
+Phase 3: Spoken and phonetic equivalence
+
+Do not map all possible pronunciations of a homograph to one canonical token.
+
+The current style of mapping:
+
+
+
+4
+
+
+
+
+
+"read": ["reed", "red"]
+
+
+can incorrectly make reed and red equivalent even though they sound different.
+
+Instead:
+
+1. Preserve the exact phonetic spelling supplied in the reference text. 2. Compare reference and hypothesis based on likely spoken sound. 3. Allow one reference token to align with multiple hypothesis tokens and the reverse.
+
+Examples that may be equivalent:
+
+
+
+Irongron
+
+I wrong grown
+
+Linx
+
+links
+
+Sontaran
+
+son to run
+
+Use a documented phonetic comparison method. Possible components include:
+
+• phoneme conversion
+
+• Double Metaphone
+
+• pronunciation dictionaries
+
+• constrained Soundex fallback
+
+• character similarity only as a secondary signal
+
+Do not use Soundex equality alone as sufficient proof of equivalence.
+
+Add tests demonstrating that:
+
+
+
+reed ≠ red
+
+lyve ≠ liv
+
+unless the ASR token itself is an ambiguous normal spelling whose pronunciation can validly correspond to the supplied phonetic reference.
+
+
+
+Phase 4: Extra-speech detection
+
+Explicitly detect unmatched speech before, inside, and after the matched reference.
+
+
+
+5
+
+
+
+
+
+Classify unmatched spans as:
+
+
+• unexpected prefix
+
+• unexpected internal speech
+
+• unexpected suffix
+
+Examples that must fail:
+
+
+
+Reference: Why?
+
+ASR: Why? Thank you.
+
+
+
+Reference: Stop!
+
+ASR: Stop. It is here.
+
+
+
+Reference: Everything will be ready soon.
+
+ASR: Everything will be ready soon. The car is dead too.
+
+
+
+Do not permit a high general similarity score to hide an appended sentence.
+
+Suggested failure rules:
+
+• two or more consecutive unmatched content words • an unmatched clause
+
+• an unmatched suffix longer than a small configurable tolerance • unmatched content exceeding a percentage of the reference length
+
+Small ASR fillers may be classified as review rather than immediate failure, but this must be conservative and documented.
+
+
+
+Phase 5: Missing-speech detection
+
+Detect missing reference material through alignment rather than only word-count ratio.
+
+Strongly penalize or automatically fail missing:
+
+• negations
+
+• numbers
+
+• names
+
+• content words
+
+• complete clauses
+
+• sentence endings
+
+• two or more consecutive words
+
+
+
+6
+
+
+
+
+
+The existing < 40% word-count truncation rule may remain as an emergency detector, but it must not be the only missing-content detector.
+
+
+
+
+Phase 6: Repetition and hallucination detection
+
+Rewrite repetition detection using normalized spoken tokens from both reference and hypothesis.
+
+Expected repetition in the reference must not be flagged.
+
+Examples:
+
+
+
+Reference: Linx! Linx, I say!
+
+ASR: Links, links, I say.
+
+This must not be classified as hallucination solely because links appears twice.
+
+
+
+Reference: tra-lal-lal-lal-lal-la
+
+ASR: la la la la la la
+
+This must not be classified as severe hallucination solely because the ASR uses separate repeated tokens.
+
+Unexpected examples such as these must fail:
+
+
+
+gait gait gait gait gait gait gait
+
+steaks steaks steaks steaks steaks
+
+Implement correct repeated phrase detection for phrase lengths of at least two through six tokens.
+
+For phrase length n , compare token blocks:
+
+
+
+tokens[i:i+n] == tokens[i+n:i+(2*n)]
+
+Do not advance by one token while testing repeated multiword blocks.
+
+Calculate excess repetition relative to the reference:
+
+
+
+unexpected count = hypothesis count - allowed reference count
+
+
+
+7
+
+
+
+
+
+Phase 7: Critical semantic tokens
+
+
+Add special handling for tokens whose alteration changes meaning materially.
+
+At minimum:
+
+• negations: not , no , never , cannot • numbers and ordinals
+
+• names and identifiers
+
+• directional or polarity words where practical
+
+A changed negation or number should normally fail even when the rest of the sentence matches.
+
+Do not add a broad semantic model unless justified by tests and performance impact.
+
+
+
+Phase 8: Classification and scoring
+
+Return three classifications:
+
+
+
+PASS
+
+REVIEW
+
+FAIL
+
+REVIEW is for ASR uncertainty that is neither safely acceptable nor clearly defective.
+
+Do not let minor_mismatch unconditionally override a low score.
+
+A minor variation may pass only when all of these are true:
+
+• no insertions
+
+• no deletions
+
+• no critical-token changes
+
+• no unexpected repetition
+
+• no material extra speech
+
+• strong phonetic alignment
+
+• high reference coverage
+
+Suggested component scores:
+
+
+
+reference coverage
+
+phonetic agreement
+
+extra-speech penalty
+
+missing-speech penalty
+
+substitution penalty
+
+
+
+8
+
+
+
+
+
+repetition penalty
+
+
+critical-token integrity
+
+
+
+Do not finalize numerical weights before regression tests exist.
+
+Hard failure overrides should include:
+
+• severe unexpected repetition
+
+• material missing speech
+
+• material extra speech
+
+• changed negation
+
+• changed number
+
+• unrelated or foreign-language output
+
+• extremely low reference coverage
+
+Phase 9: Structured result output
+
+Preserve existing fields used by the GUI and logs, but add detailed fields such as:
+
+
+
+{
+
+"classification": "FAIL",
+
+"failure_type": "unexpected_suffix", "coverage_score": 1.0,
+
+"phonetic_score": 0.97,
+
+"extra_tokens": ["thank", "you"], "missing_tokens": [],
+
+"substitutions": [],
+
+"critical_mismatches": [],
+
+"repetition_details": [],
+
+"alignment_operations": [],
+
+}
+
+
+
+Human-readable explanations should be derived from the structured data.
+
+Examples:
+
+
+
+Unexpected suffix: "thank you"
+
+Missing content: "not"
+
+Changed number: "twenty" → "thirty"
+
+Unexpected repetition: "gait" repeated 7 times; expected 0
+
+Probable phonetic variation: "Irongron" → "I wrong grown"
+
+
+
+9
+
+
+
+
+
+Phase 10: Regression tests
+
+
+Create a test module for normalization and validation logic.
+
+Use isolated pure functions so tests do not need to load Faster-Whisper or play audio.
+
+Include tests for all of these categories:
+
+Must pass
+
+
+
+Twentieth. / 20th.
+
+Everything'll / Everything will
+
+Linx / links
+
+Irongron / I wrong grown
+
+punctuation-only differences
+
+capitalization-only differences
+
+straight versus curly apostrophes
+
+expected repeated syllables
+
+
+
+Must fail
+
+
+
+Why? / Why? Thank you.
+
+Stop! / Stop. It is here.
+
+missing negation
+
+changed number
+
+missing content word
+
+unexpected repeated word 7 times
+
+unexpected repeated phrase
+
+unrelated sentence
+
+foreign-language sentence
+
+substantial unexpected suffix
+
+
+
+Must not regress
+
+
+
+I am → must remain "i am", never "one am"
+
+reed versus red → not automatically equivalent
+
+lyve versus liv → not automatically equivalent
+
+Build the existing ASR failure log into a regression fixture where practical.
+
+Do not declare expected PASS or FAIL for ambiguous examples without documenting the reason.
+
+
+
+10
+
+
+
+
+
+Phase 11: Configuration
+
+
+Move tunable thresholds into ASR/asr_config.json or a clearly defined validation configuration structure.
+
+Possible settings:
+
+
+
+{
+
+"pass_threshold": 0.90,
+
+"review_threshold": 0.75,
+
+"max_extra_content_words": 1,
+
+"max_extra_content_ratio": 0.15,
+
+"min_reference_coverage": 0.90,
+
+"phonetic_match_threshold": 0.85,
+
+"repeat_phrase_max_length": 6
+
+}
+
+
+
+Preserve backward compatibility with existing configuration files by supplying defaults.
+
+Do not expose every internal weight in the GUI unless it is useful to the user.
+
+
+
+Phase 12: Quality requirements
+
+• Use type hints for new and modified functions. • Add docstrings explaining scoring semantics. • Avoid broad except: statements in modified code. • Compile regular expressions once where practical. • Keep normalization deterministic.
+
+• Keep scoring functions pure and independently testable. • Do not mutate caller-owned token lists or dictionaries. • Avoid quadratic work beyond the sequence-alignment operation. • Preserve UTF-8 handling.
+
+• Preserve compatibility with the repository's supported Python version. • Do not add a large dependency without explaining its benefit and updating installation files. • Do not remove existing features merely to simplify implementation. • Do not silently change output file formats used elsewhere in the repository.
+
+Required validation commands
+
+Determine the actual project environment first, then run the applicable commands.
+
+At minimum:
+
+
+
+11
+
+
+
+
+
+python -m py_compile ASR/asr_validator.py
+
+
+Run the project test suite and the new ASR tests.
+
+Also run a focused test showing the normalizer output for:
+
+
+
+I am afraid.
+
+Twentieth.
+
+20th.
+
+Everything'll be ready.
+
+Linx! Linx, I say!
+
+tra-lal-lal-lal-lal-la
+
+Report the exact normalized output.
+
+
+
+Pull request requirements
+
+The pull request description must include:
+
+1. Summary of the old validator defects.
+
+2. Explanation of the new alignment and classification design. 3. Files changed.
+
+4. New dependencies, if any.
+
+5. Exact tests run and their results.
+
+6. Known limitations.
+
+7. Before-and-after examples from the failure set. 8. Confirmation that GUI and batch/chunk workflows were preserved.
+
+Do not merge the PR.
+
+Do not claim improved accuracy without reporting the regression-test results that support the claim.
+
+
+
+12
+
+
+
+
+

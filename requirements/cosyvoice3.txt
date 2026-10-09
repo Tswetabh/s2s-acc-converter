@@ -1,0 +1,6 @@
+# CosyVoice 3 Requirements
+torch>=2.2.0
+torchaudio>=2.2.0
+modelscope>=1.14.0
+funasr>=1.0.0
+soundfile>=0.12.1

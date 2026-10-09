@@ -1,0 +1,6 @@
+# Chatterbox-Turbo Requirements
+resemble-perceive>=0.1.0
+torchaudio>=2.2.0
+soundfile>=0.12.1
+transformers>=4.40.0
+diffusers>=0.27.0

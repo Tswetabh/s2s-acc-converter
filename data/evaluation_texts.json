@@ -1,0 +1,88 @@
+{
+  "test_cases": [
+    {
+      "id": "normal_01",
+      "category": "normal",
+      "text": "Artificial intelligence is changing the way people learn, work, and communicate across the globe.",
+      "language": "en",
+      "expected_tone": "neutral"
+    },
+    {
+      "id": "conversation_01",
+      "category": "conversation",
+      "text": "Hey, how are you doing today? I was really hoping we could catch up before the weekend starts.",
+      "language": "en",
+      "expected_tone": "conversational"
+    },
+    {
+      "id": "question_01",
+      "category": "question",
+      "text": "What happens when a neural network learns from millions of examples, and does it truly understand context?",
+      "language": "en",
+      "expected_tone": "inquisitive"
+    },
+    {
+      "id": "numbers_01",
+      "category": "numbers",
+      "text": "The transaction amount was $14,250.75, representing a 38.6% increase over the previous 12 months.",
+      "language": "en",
+      "expected_tone": "informative"
+    },
+    {
+      "id": "dates_01",
+      "category": "dates",
+      "text": "The international symposium is scheduled for October 15, 2026, starting at 3:30 PM Eastern Time.",
+      "language": "en",
+      "expected_tone": "informative"
+    },
+    {
+      "id": "technical_01",
+      "category": "technical",
+      "text": "The transformer architecture uses multi-head self-attention mechanisms to model bidirectional contextual relationships between discrete token representations.",
+      "language": "en",
+      "expected_tone": "formal"
+    },
+    {
+      "id": "expressive_01",
+      "category": "expressive",
+      "text": "I can't believe we actually did it! This is absolutely amazing, beyond anything we ever dreamed of!",
+      "language": "en",
+      "expected_tone": "excited"
+    },
+    {
+      "id": "punctuation_01",
+      "category": "punctuation",
+      "text": "Wait... did you hear that? First—silence; then, a sudden whisper: 'Is anyone there?!'",
+      "language": "en",
+      "expected_tone": "suspenseful"
+    },
+    {
+      "id": "proper_nouns_01",
+      "category": "proper_nouns",
+      "text": "Dr. Sivasubramanian met with Sundar Pichai in Bengaluru before flying directly to San Francisco, California.",
+      "language": "en",
+      "expected_tone": "narrative"
+    },
+    {
+      "id": "long_form_01",
+      "category": "long_form",
+      "text": "Speech synthesis has evolved dramatically from concatenative unit selection systems to contemporary generative neural audio models. Today, flow-matching architectures, diffusion transformers, and autoregressive language models enable zero-shot voice cloning with remarkable timbre preservation and human-like naturalness. Despite these technical milestones, deploying frontier speech models on resource-constrained consumer hardware remains an intricate optimization challenge. Modern low-latency applications demand a delicate balance between acoustic fidelity, memory bandwidth, compute efficiency, and predictable time-to-first-audio. As research progresses toward unified speech foundation models, rigorous cross-architectural benchmarking provides essential empirical clarity for engineering teams.",
+      "language": "en",
+      "expected_tone": "formal"
+    },
+    {
+      "id": "hindi_01",
+      "category": "hindi",
+      "text": "नमस्ते! कृत्रिम बुद्धिमत्ता हमारे सोचने और काम करने के तरीके को पूरी तरह से बदल रही है।",
+      "language": "hi",
+      "expected_tone": "neutral"
+    },
+    {
+      "id": "hinglish_01",
+      "category": "hinglish",
+      "text": "Namaste! Aaj hum artificial intelligence aur machine learning ke baare mein detailed discussion karenge.",
+      "language": "hi-en",
+      "expected_tone": "conversational"
+    }
+  ]
+}

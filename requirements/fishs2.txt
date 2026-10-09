@@ -1,0 +1,9 @@
+# Fish Audio S2 Pro Requirements
+fish-speech>=1.5.0
+torch>=2.3.0
+torchaudio>=2.3.0
+soundfile>=0.12.1
+transformers>=4.42.0
+einops>=0.8.0
+loralib>=0.1.2
+pyrootutils>=1.0.4

@@ -1,0 +1,4 @@
+# Windows launcher bootstrap list.
+# Root requirements.txt is source of truth; torch / torchaudio / torchvision
+# are installed separately by launcher.pyw or install.sh.
+-r requirements.txt

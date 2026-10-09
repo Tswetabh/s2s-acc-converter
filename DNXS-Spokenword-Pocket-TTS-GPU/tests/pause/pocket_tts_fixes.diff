@@ -1,0 +1,150 @@
+--- a/pocket_tts/audiobook/generator.py
++++ b/pocket_tts/audiobook/generator.py
+@@ -2912,9 +2912,12 @@
+                 inline_pause_text = chunk.text
+             else:
+                 logger.debug("Calling self.tts_model.generate_audio...")
++                from ..preprocessing.pause_injector import (
++                    ensure_terminal_punctuation,
++                )
+                 audio = self.tts_model.generate_audio(
+                     voice_state,
+-                    chunk.text,
++                    ensure_terminal_punctuation(chunk.text),
+                     frames_after_eos=frames_after_eos
+                 )
+ 
+@@ -4894,6 +4897,7 @@
+ ) -> Dict[int, Any]:
+     """Generate real or worker-proxy chunks in batches and reassemble pauses."""
+     from pocket_tts.preprocessing.pause_injector import (
++        ensure_terminal_punctuation,
+         has_inline_pause_markers,
+         inject_pauses_for_punctuation,
+         parse_text_with_pauses,
+@@ -4910,12 +4914,12 @@
+         if has_inline_pause_markers(raw_text):
+             _, pauses = parse_text_with_pauses(raw_text)
+             # Keep a chunk whole. Splitting at markers destroys TTS context.
+-            events = [("text", render_text_with_native_pauses(raw_text))]
++            events = [("text", ensure_terminal_punctuation(render_text_with_native_pauses(raw_text)))]
+             chunk.pause_events = pauses if pauses else None
+             chunk._inline_pause_text = raw_text
+         else:
+             chunk._inline_pause_text = None
+-            events = [("text", raw_text)]
++            events = [("text", ensure_terminal_punctuation(raw_text))]
+ 
+         chunk_events[global_index] = []
+         params = _chunk_tts_params(chunk)
+@@ -5733,9 +5737,12 @@
+                     chunk._inline_pause_text = chunk.text
+                 else:
+                     chunk._inline_pause_text = None
++                    from pocket_tts.preprocessing.pause_injector import (
++                        ensure_terminal_punctuation,
++                    )
+                     audio = tts_model.generate_audio(
+                         voice_state,
+-                        chunk.text,
++                        ensure_terminal_punctuation(chunk.text),
+                         frames_after_eos=frames_after_eos
+                     )
+ 
+--- a/pocket_tts/preprocessing/pause_injector.py
++++ b/pocket_tts/preprocessing/pause_injector.py
+@@ -103,6 +103,24 @@
+         return ", "
+ 
+     return PAUSE_RE.sub(replace_marker, raw)
++
++
++_TERMINAL_PUNCTUATION = ".!?\u2026"
++
++
++def ensure_terminal_punctuation(text: str) -> str:
++    """Guarantee a stop cue so the model does not loop on punctuation-less text.
++
++    Short prompts without terminal punctuation make the autoregressive model
++    repeat the utterance (e.g. "Chapter One Chapter One" ghosting).  Appends a
++    period only when the spoken text has no final punctuation.
++    """
++    stripped = text.strip()
++    if not stripped:
++        return text
++    if stripped[-1] in _TERMINAL_PUNCTUATION:
++        return text
++    return stripped + "."
+ 
+ 
+ def _text_anchor_ratio(raw_text: str, marker_start: int) -> float:
+@@ -234,6 +252,7 @@
+     spoken_text = render_text_with_native_pauses(raw_text).strip()
+     if not spoken_text:
+         return torch.zeros(0, dtype=torch.float32), pauses
++    spoken_text = ensure_terminal_punctuation(spoken_text)
+     logger.debug(f"Generating one TTS prompt with native pauses: {repr(spoken_text[:50])}")
+     audio = tts_model.generate_audio(voice_state, spoken_text)
+     if insert_pauses:
+--- a/pocket_tts/models/flow_lm.py
++++ b/pocket_tts/models/flow_lm.py
+@@ -166,7 +166,17 @@
+         noise = torch.empty(noise_shape, dtype=dtype, device=device)
+         # N(0,1) on device then scale by std (scalar or batched). Avoids
+         # torch.nn.init.normal_(..., std=float(std.item())) host sync.
+-        noise.normal_()
++        rng = getattr(self, "_rng", None)
++        if rng is None:
++            # Per-model-instance CUDA generator: worker threads must not share
++            # the process-global RNG, or concurrent generations can draw
++            # identical noise (duplicate utterances).
++            import os as _os
++
++            rng = torch.Generator(device=device)
++            rng.manual_seed(int.from_bytes(_os.urandom(8), "little") & 0x7FFFFFFF)
++            self._rng = rng
++        noise.normal_(generator=rng)
+         if std.numel() == 1:
+             noise.mul_(std.reshape(()))
+         else:
+--- a/pocket_tts/models/cuda_graph_flow_lm.py
++++ b/pocket_tts/models/cuda_graph_flow_lm.py
+@@ -188,6 +188,9 @@
+             torch.cuda.synchronize()
+ 
+             self.graph = torch.cuda.CUDAGraph()
++            rng = getattr(flow, "_rng", None)
++            if rng is not None:
++                self.graph.register_generator_state(rng)
+             with torch.inference_mode(), torch.cuda.graph(self.graph):
+                 lat, eos = flow._sample_next_latent(
+                     self._static_seq,
+--- a/pocket_tts/models/tts_model.py
++++ b/pocket_tts/models/tts_model.py
+@@ -675,6 +675,7 @@
+                         "Batch CUDA graph step failed; falling back to eager: %s", exc
+                     )
+                     batch_graph = None
++                    self.flow_lm._rng = None  # release graph-registered generator
+             lat, eos = self._run_flow_lm_and_increment_step(
+                 model_state=flow_state,
+                 text_tokens=empty_tokens,
+@@ -808,6 +809,9 @@
+         if not audio_frames:
+             return [torch.zeros(0, device=device) for _ in requests]
+ 
++        self.last_batch_eos_steps = list(eos_steps)
++        self.last_batch_gen_len = max_gen_len
++
+         audio_batch = torch.cat(audio_frames, dim=-1)
+         frame_samples = audio_batch.shape[-1] // len(audio_frames)
+         outputs = []
+@@ -1268,6 +1272,8 @@
+                 return out
+             except Exception as exc:
+                 logger.warning("CUDA graph AR step failed; falling back to eager: %s", exc)
++                if hasattr(self.flow_lm, "_rng"):
++                    self.flow_lm._rng = None  # release graph-registered generator
+         self.cuda_graph_stats["steps_eager"] = (
+             int(self.cuda_graph_stats.get("steps_eager", 0)) + 1
+         )

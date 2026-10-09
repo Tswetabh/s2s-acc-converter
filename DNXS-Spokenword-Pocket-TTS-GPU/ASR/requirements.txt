@@ -1,0 +1,3 @@
+# Deprecated shim for ASR-only installs.
+# Main project venv is canonical. This file now reuses root requirements.
+-r ../requirements.txt

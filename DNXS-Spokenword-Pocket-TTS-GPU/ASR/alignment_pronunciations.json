@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "notes": "Editable alignment-only pronunciations. Keys are source spellings; values are pronunciations accepted by the forced-alignment preparation step.",
+  "pronunciations": {
+    "Cloze": ["klohz"],
+    "Linx": ["links"],
+    "Irongron": ["eye-ron-gron"]
+  },
+  "letter_sequences": {},
+  "homographs": {},
+  "names": {}
+}

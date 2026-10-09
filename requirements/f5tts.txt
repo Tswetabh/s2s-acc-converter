@@ -1,0 +1,6 @@
+# F5-TTS Requirements
+f5-tts>=0.1.0
+vocos>=0.1.0
+torchaudio>=2.2.0
+soundfile>=0.12.1
+cached_path>=1.6.2

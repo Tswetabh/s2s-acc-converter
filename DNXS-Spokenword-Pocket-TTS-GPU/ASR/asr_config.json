@@ -1,0 +1,13 @@
+{
+  "last_folder": "/home/danno/MyApps/Turbo/turbo/chatterbox/Audiobooks/TTS",
+  "validation": {
+    "pass_threshold": 0.88,
+    "review_threshold": 0.72,
+    "max_extra_content_words": 1,
+    "max_extra_content_ratio": 0.15,
+    "min_reference_coverage": 0.90,
+    "phonetic_match_threshold": 0.85,
+    "repeat_phrase_max_length": 6,
+    "pass_tolerance_score": 0.95
+  }
+}

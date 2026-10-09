@@ -1,0 +1,7 @@
+# Coqui XTTS-v2 Requirements
+TTS>=0.22.0
+torch>=2.2.0
+torchaudio>=2.2.0
+soundfile>=0.12.1
+scipy>=1.12.0
+transformers>=4.36.0,<4.45.0

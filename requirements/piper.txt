@@ -1,0 +1,4 @@
+# Piper TTS Requirements
+piper-tts>=1.2.0
+onnxruntime>=1.17.0
+soundfile>=0.12.1

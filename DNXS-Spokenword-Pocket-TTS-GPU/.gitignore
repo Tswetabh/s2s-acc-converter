@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ASR/venv/
+
+# Runtime / generated
+Output/
+*.log
+pocket_tts.log
+.setup_complete
+.hf_token_skipped
+HF_SETUP_INSTRUCTIONS.txt
+
+# Model weights (large binaries kept locally)
+weights/
+!weights/**/README.md
+!weights/**/.gitkeep
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*~
+*.swp
+
+# Backups and leftover copies
+*.bak
+*.bak_*
+*.orig
+*.old
+*.back
+*.backup
+*.backup.*
+*.backup_*
+* (copy).*
+* (another copy).*
+*.18
+pocket_tts/audiobook/generator.py.202*
+
+# Local machine state
+ASR/asr_gui_config.json
+ASR/launcher.log
+ASR/PocketGPU_ASR_Validator.desktop
+ASR/arsproposal.txt
+tests/results/
+
+# Scratch / session dumps
+plan.txt
+prompt.txt
+session-ses_0926.md
+opencode.json

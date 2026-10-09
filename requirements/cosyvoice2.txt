@@ -1,0 +1,7 @@
+# CosyVoice 2 (0.5B) Requirements
+torch>=2.2.0
+torchaudio>=2.2.0
+conformer>=0.3.2
+diffusers>=0.27.0
+gdown>=5.1.0
+soundfile>=0.12.1

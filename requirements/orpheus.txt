@@ -1,0 +1,6 @@
+# Orpheus TTS (Canopy Labs 3B) Requirements
+transformers>=4.44.0
+accelerate>=0.33.0
+bitsandbytes>=0.43.0
+torchaudio>=2.2.0
+soundfile>=0.12.1

@@ -1,0 +1,6 @@
+# ByteDance MegaTTS 3 Requirements
+torch>=2.2.0
+diffusers>=0.28.0
+transformers>=4.40.0
+soundfile>=0.12.1
+einops>=0.7.0
