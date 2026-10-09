@@ -24,9 +24,20 @@ import argparse
 from datetime import datetime
 import os
 from pathlib import Path
+import subprocess
 import sys
 import time
 from typing import List, Optional, Tuple
+
+# Auto-redirect to dedicated virtual environment if executed with global/other Python
+ROOT = Path(__file__).resolve().parents[1]
+TARGET_PYTHON = ROOT / "DNXS-Spokenword-Pocket-TTS-GPU" / ".venv" / "Scripts" / "python.exe"
+if TARGET_PYTHON.exists():
+    curr_exe = os.path.normcase(os.path.abspath(sys.executable))
+    target_exe = os.path.normcase(str(TARGET_PYTHON.resolve()))
+    if curr_exe != target_exe:
+        result = subprocess.run([str(TARGET_PYTHON)] + sys.argv, check=False)
+        sys.exit(result.returncode)
 
 # Reconfigure stdout/stderr for clean UTF-8 terminal printing
 if hasattr(sys.stdout, "reconfigure"):
