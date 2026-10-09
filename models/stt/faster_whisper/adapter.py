@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import torch
 from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
@@ -90,17 +91,57 @@ class FasterWhisperAdapter:
 
         return self._model
 
+    def unload(self) -> None:
+        """Unload model and free VRAM."""
+        if self._model is not None:
+            del self._model
+            self._model = None
+            import gc
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
     def transcribe(
         self,
         audio: Union[str, Path, np.ndarray],
         language: Optional[str] = None,
         beam_size: int = 5,
         **kwargs: Any,
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-        """Transcribe an audio array or file."""
+    ) -> Dict[str, Any]:
+        """Transcribe an audio array or file.
+
+        Returns a dictionary containing:
+          - text: Combined full transcript text string
+          - segments: List of segment dictionaries with start, end, text
+          - language: Detected language code
+          - language_probability: Probability of detected language
+          - duration: Audio duration in seconds
+        """
         model = self.load()
+
+        if isinstance(audio, (str, Path)):
+            audio_path = Path(audio).resolve()
+            if not audio_path.is_file():
+                raise FileNotFoundError(f"Audio file not found: {audio_path}")
+            import soundfile as sf
+            audio_data, sr = sf.read(str(audio_path), dtype="float32", always_2d=False)
+            if getattr(audio_data, "ndim", 1) > 1:
+                audio_data = np.mean(audio_data, axis=1)
+            audio_data = np.asarray(audio_data, dtype=np.float32)
+            if sr != 16000:
+                try:
+                    import librosa
+                    audio_data = librosa.resample(audio_data, orig_sr=int(sr), target_sr=16000).astype(np.float32)
+                except ImportError:
+                    import scipy.signal
+                    num_samples = int(len(audio_data) * 16000 / sr)
+                    audio_data = scipy.signal.resample(audio_data, num_samples).astype(np.float32)
+            audio_input = audio_data
+        else:
+            audio_input = audio
+
         segments_gen, info = model.transcribe(
-            audio if isinstance(audio, np.ndarray) else str(audio),
+            audio_input,
             language=language,
             beam_size=beam_size,
             **kwargs,
@@ -110,9 +151,13 @@ class FasterWhisperAdapter:
             {"start": s.start, "end": s.end, "text": s.text}
             for s in segments_gen
         ]
-        info_dict = {
+        full_text = " ".join(s["text"].strip() for s in segments)
+
+        return {
+            "text": full_text,
+            "segments": segments,
             "language": info.language,
             "language_probability": info.language_probability,
             "duration": info.duration,
         }
-        return segments, info_dict
+

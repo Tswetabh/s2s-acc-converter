@@ -140,10 +140,30 @@ python test.py --model tiny --audio Testinput\Swetabh_Input.wav
 python scripts\stt\transcribe.py --model turbo --audio Testinput\Swetabh_Input.wav
 ```
 
-### 8. Compile Final Markdown Evaluation Report
+### 8. Run Unified Speech-to-Speech (M4A -> STT -> TTS) Pipeline
+Convert laptop `.m4a` recordings, transcribe with Faster-Whisper, and synthesize with Pocket TTS voice cloning:
+```powershell
+# 1. Automatically grab the newest recording from Windows Sound Recordings:
+python pipeline.py
+
+# 2. Interactively pick from available recordings in Sound Recordings folder:
+python pipeline.py --select
+
+# 3. Transcribe an explicit M4A file with high accuracy turbo model:
+python pipeline.py --audio "Testinput\Swetabh Input.m4a" --stt-model turbo
+
+# 4. Use custom reference voice (defaults to 'Testinput\Anoop voice line.wav'):
+python pipeline.py --reference "Testinput\Anoop voice line.wav"
+
+# 5. Specify custom recordings directory or output file:
+python pipeline.py --recordings-dir "C:\Users\tripa\Documents\Sound Recordings" --output "Output\my_result.wav"
+```
+
+### 9. Compile Final Markdown Evaluation Report
 ```powershell
 python scripts\generate_report.py
 ```
+
 
 
 ---
