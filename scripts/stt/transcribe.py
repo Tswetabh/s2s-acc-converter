@@ -11,34 +11,48 @@ import argparse
 import sys
 import time
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 from faster_whisper import WhisperModel
 
 # Repository root (two levels up from scripts/stt/)
 ROOT = Path(__file__).resolve().parents[2]
 
-MODEL_PATH = (
-    ROOT
-    / "weights"
-    / "stt"
-    / "faster-whisper-large-v3-turbo-ct2"
-)
+LOCAL_MODELS = {
+    "turbo": ROOT / "weights" / "stt" / "faster-whisper-large-v3-turbo-ct2",
+    "large-v3-turbo": ROOT / "weights" / "stt" / "faster-whisper-large-v3-turbo-ct2",
+    "tiny": ROOT / "weights" / "stt" / "faster-whisper-tiny",
+}
+MODEL_PATH = LOCAL_MODELS["turbo"]
 
 DEFAULT_AUDIO = ROOT / "Testinput" / "Swetabh_Input.wav"
 
 
+def resolve_model_path(model_identifier: Union[str, Path, None] = None) -> Union[str, Path]:
+    """Resolve model key ('tiny', 'turbo') or custom path/name."""
+    if model_identifier is None:
+        return MODEL_PATH
+    key = str(model_identifier).lower()
+    if key in LOCAL_MODELS and LOCAL_MODELS[key].exists():
+        return LOCAL_MODELS[key]
+    if isinstance(model_identifier, Path) and model_identifier.exists():
+        return model_identifier
+    if isinstance(model_identifier, str) and Path(model_identifier).exists():
+        return Path(model_identifier)
+    return model_identifier
+
+
 def load_model(
-    model_path: Optional[Path] = None,
+    model_path: Optional[Union[str, Path]] = None,
     device: str = "cuda",
     compute_type: str = "float16",
 ) -> WhisperModel:
-    """Load Faster-Whisper model from local weights directory."""
-    target_path = model_path or MODEL_PATH
-    if not target_path.exists():
+    """Load Faster-Whisper model from local weights directory or identifier."""
+    target_path = resolve_model_path(model_path)
+    if isinstance(target_path, Path) and not target_path.exists():
         raise FileNotFoundError(
             f"Faster-Whisper weights directory not found at: {target_path}\n"
-            f"Please verify weights/stt/faster-whisper-large-v3-turbo-ct2 exists."
+            f"Available local models: {list(LOCAL_MODELS.keys())}"
         )
 
     try:
@@ -151,11 +165,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Path to input audio file (defaults to sample in Testinput/)",
     )
     parser.add_argument(
-        "--model-dir",
+        "--model",
         "-m",
-        type=Path,
-        default=MODEL_PATH,
-        help="Path to local CT2 model directory",
+        default="turbo",
+        help="Model choice ('tiny', 'turbo') or path to local CT2 weights (default: turbo)",
+    )
+    parser.add_argument(
+        "--model-dir",
+        default=None,
+        help="Legacy alias for --model",
     )
     parser.add_argument(
         "--device",
@@ -200,16 +218,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 print("Error: No audio file specified and no default found in Testinput/")
                 return 1
 
+    model_choice = args.model_dir or args.model
+    resolved_model = resolve_model_path(model_choice)
+
     print("=" * 60)
     print("Faster-Whisper STT")
-    print(f"Model path: {args.model_dir}")
+    print(f"Model: {model_choice} -> {resolved_model}")
     print(f"Audio file: {audio_path}")
     print(f"Device: {args.device} | Compute type: {args.compute_type}")
     print("=" * 60)
 
     try:
         model = load_model(
-            model_path=args.model_dir,
+            model_path=model_choice,
             device=args.device,
             compute_type=args.compute_type,
         )

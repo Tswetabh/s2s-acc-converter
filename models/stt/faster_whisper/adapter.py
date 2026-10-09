@@ -16,12 +16,12 @@ from faster_whisper import WhisperModel
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_WEIGHTS_DIR = (
-    REPO_ROOT
-    / "weights"
-    / "stt"
-    / "faster-whisper-large-v3-turbo-ct2"
-)
+MODEL_REGISTRY = {
+    "turbo": REPO_ROOT / "weights" / "stt" / "faster-whisper-large-v3-turbo-ct2",
+    "large-v3-turbo": REPO_ROOT / "weights" / "stt" / "faster-whisper-large-v3-turbo-ct2",
+    "tiny": REPO_ROOT / "weights" / "stt" / "faster-whisper-tiny",
+}
+DEFAULT_WEIGHTS_DIR = MODEL_REGISTRY["turbo"]
 
 
 class FasterWhisperAdapter:
@@ -34,26 +34,33 @@ class FasterWhisperAdapter:
         compute_type: str = "float16",
         cpu_threads: int = 4,
     ):
-        self.model_path = Path(model_path) if model_path else DEFAULT_WEIGHTS_DIR
+        if model_path is None:
+            self.model_path = DEFAULT_WEIGHTS_DIR
+        elif str(model_path).lower() in MODEL_REGISTRY:
+            self.model_path = MODEL_REGISTRY[str(model_path).lower()]
+        else:
+            self.model_path = Path(model_path) if Path(str(model_path)).exists() else model_path
+
         self.device = device
         self.compute_type = compute_type
         self.cpu_threads = cpu_threads
         self._model: Optional[WhisperModel] = None
 
     @classmethod
-    def get_default_weights_path(cls) -> Path:
-        """Return the default repository weights path."""
-        return DEFAULT_WEIGHTS_DIR
+    def get_default_weights_path(cls, model_name: str = "turbo") -> Path:
+        """Return the default repository weights path for a given model."""
+        return MODEL_REGISTRY.get(model_name.lower(), DEFAULT_WEIGHTS_DIR)
 
     def load(self) -> WhisperModel:
         """Load and return the underlying WhisperModel instance."""
         if self._model is not None:
             return self._model
 
-        if not self.model_path.exists():
+        # If it's a Path object, check if it exists locally
+        if isinstance(self.model_path, Path) and not self.model_path.exists():
             raise FileNotFoundError(
                 f"Model weights not found at: {self.model_path}\n"
-                f"Expected directory: {DEFAULT_WEIGHTS_DIR}"
+                f"Available local models: {list(MODEL_REGISTRY.keys())}"
             )
 
         try:

@@ -127,10 +127,24 @@ python scripts\clone_voice.py --ref-audio "C:\Users\tripa\Downloads\Hindi_F_Tyag
 python scripts\clone_voice.py
 ```
 
-### 7. Compile Final Markdown Evaluation Report
+### 7. Run Speech-to-Text (STT) Transcription
+Transcribe speech using Faster-Whisper with your choice of model:
+```powershell
+# Using Tiny Whisper (ultra-fast, lightweight, ~75MB):
+python scripts\stt\transcribe.py --model tiny --audio Testinput\Swetabh_Input.wav
+
+# Or using the root shortcut:
+python test.py --model tiny --audio Testinput\Swetabh_Input.wav
+
+# Using Large-v3-Turbo (high accuracy, ~1.61GB):
+python scripts\stt\transcribe.py --model turbo --audio Testinput\Swetabh_Input.wav
+```
+
+### 8. Compile Final Markdown Evaluation Report
 ```powershell
 python scripts\generate_report.py
 ```
+
 
 ---
 
