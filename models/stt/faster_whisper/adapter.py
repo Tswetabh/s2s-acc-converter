@@ -22,7 +22,7 @@ MODEL_REGISTRY = {
     "large-v3-turbo": REPO_ROOT / "weights" / "stt" / "faster-whisper-large-v3-turbo-ct2",
     "tiny": REPO_ROOT / "weights" / "stt" / "faster-whisper-tiny",
 }
-DEFAULT_WEIGHTS_DIR = MODEL_REGISTRY["turbo"]
+DEFAULT_WEIGHTS_DIR = MODEL_REGISTRY["tiny"]
 
 
 class FasterWhisperAdapter:
@@ -48,7 +48,7 @@ class FasterWhisperAdapter:
         self._model: Optional[WhisperModel] = None
 
     @classmethod
-    def get_default_weights_path(cls, model_name: str = "turbo") -> Path:
+    def get_default_weights_path(cls, model_name: str = "tiny") -> Path:
         """Return the default repository weights path for a given model."""
         return MODEL_REGISTRY.get(model_name.lower(), DEFAULT_WEIGHTS_DIR)
 

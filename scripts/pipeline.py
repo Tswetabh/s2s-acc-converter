@@ -177,9 +177,9 @@ def parse_args():
     parser.add_argument(
         "--stt-model",
         type=str,
-        default="turbo",
+        default="tiny",
         choices=["tiny", "turbo", "large-v3-turbo"],
-        help="Faster-Whisper model to use: 'tiny' (~75MB, fastest) or 'turbo' (high accuracy). Default: turbo.",
+        help="Faster-Whisper model to use: 'tiny' (~75MB, fastest) or 'turbo' (high accuracy). Default: tiny.",
     )
     parser.add_argument(
         "--device",

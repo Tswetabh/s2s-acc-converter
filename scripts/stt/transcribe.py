@@ -23,7 +23,7 @@ LOCAL_MODELS = {
     "large-v3-turbo": ROOT / "weights" / "stt" / "faster-whisper-large-v3-turbo-ct2",
     "tiny": ROOT / "weights" / "stt" / "faster-whisper-tiny",
 }
-MODEL_PATH = LOCAL_MODELS["turbo"]
+MODEL_PATH = LOCAL_MODELS["tiny"]
 
 DEFAULT_AUDIO = ROOT / "Testinput" / "Swetabh_Input.wav"
 
@@ -167,8 +167,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--model",
         "-m",
-        default="turbo",
-        help="Model choice ('tiny', 'turbo') or path to local CT2 weights (default: turbo)",
+        default="tiny",
+        help="Model choice ('tiny', 'turbo') or path to local CT2 weights (default: tiny)",
     )
     parser.add_argument(
         "--model-dir",
