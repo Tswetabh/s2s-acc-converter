@@ -64,6 +64,7 @@ DEFAULT_RECORDINGS_DIR = Path(
     os.getenv("SOUND_RECORDINGS_DIR", r"C:\Users\tripa\Documents\Sound Recordings")
 )
 DEFAULT_FALLBACK_AUDIO = ROOT / "Testinput" / "Anoop voice line.wav"
+DEFAULT_REFERENCE_VOICE = ROOT / "Testinput" / "american accent.wav"
 DEFAULT_OUTPUT_DIR = ROOT / "Output"
 
 
@@ -165,7 +166,7 @@ def parse_args():
         "-r",
         type=str,
         default=None,
-        help="Reference audio for TTS voice cloning (default: fallback Anoop voice line.wav).",
+        help="Reference audio for TTS voice cloning (default: 'Testinput/american accent.wav').",
     )
     parser.add_argument(
         "--output",
@@ -295,7 +296,7 @@ def main():
     if args.reference:
         ref_path = Path(args.reference).resolve()
     else:
-        ref_path = DEFAULT_FALLBACK_AUDIO
+        ref_path = DEFAULT_REFERENCE_VOICE
 
     if not ref_path.exists():
         print(f"  [WARN] Reference voice not found at {ref_path}. Using fallback Alba voice.")

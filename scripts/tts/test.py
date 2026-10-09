@@ -31,7 +31,7 @@ import torch
 from pocket_tts.models.tts_model import TTSModel
 
 # Default repo-relative paths
-DEFAULT_REFERENCE = ROOT / "Testinput" / "Swetabh_Input.wav"
+DEFAULT_REFERENCE = ROOT / "Testinput" / "american accent.wav"
 DEFAULT_OUTPUT = ROOT / "Output" / "cloned_output.wav"
 
 

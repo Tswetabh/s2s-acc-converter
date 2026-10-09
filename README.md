@@ -152,7 +152,7 @@ python pipeline.py --select
 # 3. Transcribe an explicit M4A file with high accuracy turbo model:
 python pipeline.py --audio "Testinput\Swetabh Input.m4a" --stt-model turbo
 
-# 4. Use custom reference voice (defaults to 'Testinput\Anoop voice line.wav'):
+# 4. Use custom reference voice (defaults to 'Testinput\american accent.wav'):
 python pipeline.py --reference "Testinput\Anoop voice line.wav"
 
 # 5. Specify custom recordings directory or output file:
