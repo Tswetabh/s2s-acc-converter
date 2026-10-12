@@ -189,6 +189,18 @@ def parse_args():
         choices=["auto", "cuda", "cpu"],
         help="Device to use for STT & TTS inference (default: auto).",
     )
+    parser.add_argument(
+        "--temp",
+        type=float,
+        default=0.7,
+        help="TTS sampling temperature (default: 0.7, lower for more stability).",
+    )
+    parser.add_argument(
+        "--lsd-steps",
+        type=int,
+        default=3,
+        help="LSD decoding steps for Pocket TTS (default: 3, higher = higher voice clarity).",
+    )
     return parser.parse_args()
 
 
@@ -313,7 +325,11 @@ def main():
         tts_device = "cuda"
 
     tts_load_start = time.perf_counter()
-    tts_model = TTSModel.load_model(device=tts_device)
+    tts_model = TTSModel.load_model(
+        device=tts_device,
+        temp=args.temp,
+        lsd_decode_steps=args.lsd_steps,
+    )
     t_tts_load = time.perf_counter() - tts_load_start
     print(f"  TTS Model loaded in {t_tts_load:.2f}s ({t_tts_load * 1000:.1f} ms)")
 

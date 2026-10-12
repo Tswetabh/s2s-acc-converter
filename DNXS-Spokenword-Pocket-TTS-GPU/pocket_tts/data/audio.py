@@ -21,22 +21,36 @@ FIRST_CHUNK_LENGTH_SECONDS = float(os.environ.get("FIRST_CHUNK_LENGTH_SECONDS", 
 
 
 def audio_read(filepath: str | Path) -> tuple[torch.Tensor, int]:
-    """Read audio using Python's wave module."""
-    with wave.open(str(filepath), "rb") as wav_file:
-        sample_rate = wav_file.getframerate()
-
-        # Check for supported sample width (16-bit)
-        sampwidth = wav_file.getsampwidth()
-        if sampwidth != 2:
-            raise ValueError(f"Unsupported WAV sample width ({sampwidth*8} bits). Please convert your audio file to 16-bit PCM (WAV) format.")
-
-        # Read all audio data as 16-bit signed integers
-        raw_data = wav_file.readframes(-1)
-        samples = np.frombuffer(raw_data, dtype=np.int16).astype(np.float32) / 32768.0
-
-        # Return as mono tensor (channels, samples)
-        wav = torch.from_numpy(samples.reshape(1, -1))
-        return wav, sample_rate
+    """Read audio file into a mono float32 tensor of shape (1, samples) and sample rate."""
+    try:
+        import soundfile as sf
+        data, sample_rate = sf.read(str(filepath), dtype="float32")
+        if data.ndim == 2:
+            data = np.mean(data, axis=1)
+        max_val = np.max(np.abs(data))
+        if max_val > 1e-4:
+            data = data / max_val * 0.95
+        wav = torch.from_numpy(data.reshape(1, -1).astype(np.float32))
+        return wav, int(sample_rate)
+    except Exception as exc:
+        with wave.open(str(filepath), "rb") as wav_file:
+            sample_rate = wav_file.getframerate()
+            n_channels = wav_file.getnchannels()
+            sampwidth = wav_file.getsampwidth()
+            if sampwidth != 2:
+                raise ValueError(
+                    f"Unsupported WAV sample width ({sampwidth*8} bits): {exc}. "
+                    "Please convert your audio file to 16-bit PCM (WAV) format."
+                )
+            raw_data = wav_file.readframes(-1)
+            samples = np.frombuffer(raw_data, dtype=np.int16).astype(np.float32) / 32768.0
+            if n_channels > 1:
+                samples = samples.reshape(-1, n_channels).mean(axis=1)
+            max_val = np.max(np.abs(samples))
+            if max_val > 1e-4:
+                samples = samples / max_val * 0.95
+            wav = torch.from_numpy(samples.reshape(1, -1).astype(np.float32))
+            return wav, int(sample_rate)
 
 
 class StreamingWAVWriter:
