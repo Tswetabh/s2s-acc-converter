@@ -70,10 +70,13 @@ or explicit file input     WAV for Whisper ingestion          transcribes speech
 
 ```text
 d:\tts-poc\
-├── pipeline.py                      # Root launcher (auto-activates virtual environment)
+├── pipeline.py                      # Root CLI launcher (auto-activates venv)
+├── gui.py                           # Desktop GUI launcher (console window)
+├── gui.pyw                          # Desktop GUI launcher (double-click without console)
 ├── test.py                          # Shortcut for testing Whisper STT directly
 │
 ├── scripts/                         # Core execution logic & utilities
+│   ├── gui_app.py                   # Desktop Tkinter GUI Studio implementation
 │   ├── pipeline.py                  # Main S2S pipeline implementation (Stages 1-4)
 │   ├── utils/
 │   │   └── audio_convert.py         # PyAV audio resampling (.m4a -> 16kHz WAV)
@@ -116,7 +119,16 @@ d:\tts-poc\
 
 ## 4. Quickstart & Usage
 
-### 1. Run the Complete Pipeline (Default)
+### 0. Launch Desktop GUI Studio
+Launch the graphical interface for visual recording selection, live text editing, and one-click conversion:
+```powershell
+# Launch from terminal:
+python gui.py
+
+# Or double-click 'gui.pyw' in File Explorer (runs without a console window).
+```
+
+### 1. Run the Complete Pipeline (CLI Default)
 Grabs the newest Windows Voice Recording, transcribes with `tiny` Whisper, and clones with the American accent reference:
 ```powershell
 python pipeline.py
